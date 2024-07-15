@@ -16,6 +16,6 @@ pub async fn home(app_state: web::Data<AppState>) -> impl Responder {
 }
 
 #[get("/hello/{name}")]
-pub async fn greet(name: web::Path<String>) -> impl Responder {
+pub async fn hello(name: web::Path<String>) -> impl Responder {
     api_response::ApiResponse::new(200, format!("Hello {}!", name))
 }

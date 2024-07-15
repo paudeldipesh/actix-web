@@ -16,3 +16,4 @@ lazy_static = "1.4.0"
 sea-orm = { version = "0.12", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros" ] }
 entity = { path = "entity" }
 migration = { path = "migration" } # depends on your needs
+sha256 = "1.5.0"
