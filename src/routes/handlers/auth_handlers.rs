@@ -1,4 +1,4 @@
-use crate::utils::{api_response, app_status::AppState};
+use crate::utils::{api_response, app_status::AppState, jwt};
 use actix_web::{get, post, web, Responder};
 use sea_orm::{ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,9 @@ pub async fn login(
         return api_response::ApiResponse::new(401, String::from("user not found"));
     }
 
-    api_response::ApiResponse::new(200, user.unwrap().name)
+    let user_data = user.unwrap();
+    let token = jwt::encode_jwt(user_data.email, user_data.id).unwrap();
+    api_response::ApiResponse::new(200, format!("{{ 'token': '{}' }}", token))
 }
 
 #[get("/hi/{name}")]

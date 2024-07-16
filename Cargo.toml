@@ -17,3 +17,5 @@ sea-orm = { version = "0.12", features = [ "sqlx-postgres", "runtime-tokio-rustl
 entity = { path = "entity" }
 migration = { path = "migration" } # depends on your needs
 sha256 = "1.5.0"
+chrono = "0.4.37"
+jsonwebtoken = "9.3.0"
