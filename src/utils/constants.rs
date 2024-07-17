@@ -11,20 +11,23 @@ lazy_static! {
 
 fn set_address() -> String {
     dotenv().ok();
-    env::var("ADDRESS").unwrap()
+    env::var("ADDRESS").unwrap_or(String::from("127.0.0.1"))
 }
 
 fn set_port() -> u16 {
     dotenv().ok();
-    env::var("PORT").unwrap().parse::<u16>().unwrap()
+    env::var("PORT")
+        .unwrap_or_else(|_| String::from("5050"))
+        .parse::<u16>()
+        .expect("Cannot parse the port")
 }
 
 fn set_database_url() -> String {
     dotenv().ok();
-    env::var("DATABASE_URL").unwrap()
+    env::var("DATABASE_URL").expect("postgres://postgres:5862468@localhost:5432/BlogDB")
 }
 
 fn set_secret() -> String {
     dotenv().ok();
-    env::var("SECRET").unwrap()
+    env::var("SECRET").unwrap_or(String::from("dipeshpaudel"))
 }

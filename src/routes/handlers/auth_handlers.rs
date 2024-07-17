@@ -1,6 +1,6 @@
-use crate::utils::{api_response, app_status::AppState, jwt};
+use crate::utils::{api_response::ApiResponse, app_status::AppState, jwt};
 use actix_web::{get, post, web, Responder};
-use sea_orm::{ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, Condition, DbErr, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use sha256::digest;
 
@@ -15,7 +15,7 @@ struct RegisterModel {
 pub async fn register(
     app_state: web::Data<AppState>,
     register_json: web::Json<RegisterModel>,
-) -> impl Responder {
+) -> Result<ApiResponse, ApiResponse> {
     let user_model = entity::user::ActiveModel {
         name: Set(register_json.name.clone()),
         email: Set(register_json.email.clone()),
@@ -24,9 +24,9 @@ pub async fn register(
     }
     .insert(&app_state.db)
     .await
-    .unwrap();
+    .map_err(|err: DbErr| ApiResponse::new(500, err.to_string()))?;
 
-    api_response::ApiResponse::new(200, format!("{}", user_model.id))
+    Ok(ApiResponse::new(200, format!("{}", user_model.id)))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -39,8 +39,8 @@ struct LoginModel {
 pub async fn login(
     app_state: web::Data<AppState>,
     login_json: web::Json<LoginModel>,
-) -> impl Responder {
-    let user = entity::user::Entity::find()
+) -> Result<ApiResponse, ApiResponse> {
+    let user_data = entity::user::Entity::find()
         .filter(
             Condition::all()
                 .add(entity::user::Column::Email.eq(&login_json.email))
@@ -48,18 +48,16 @@ pub async fn login(
         )
         .one(&app_state.db)
         .await
-        .unwrap();
+        .map_err(|err: DbErr| ApiResponse::new(500, err.to_string()))?
+        .ok_or(ApiResponse::new(404, "User not found".to_owned()))?;
 
-    if user.is_none() {
-        return api_response::ApiResponse::new(401, String::from("user not found"));
-    }
+    let token: String = jwt::encode_jwt(user_data.email, user_data.id)
+        .map_err(|err| ApiResponse::new(500, err.to_string()))?;
 
-    let user_data = user.unwrap();
-    let token = jwt::encode_jwt(user_data.email, user_data.id).unwrap();
-    api_response::ApiResponse::new(200, format!("{{ 'token': '{}' }}", token))
+    Ok(ApiResponse::new(200, format!("{{ 'token': '{}' }}", token)))
 }
 
 #[get("/hi/{name}")]
 pub async fn hi(name: web::Path<String>) -> impl Responder {
-    api_response::ApiResponse::new(200, format!("Hi {}!", name))
+    ApiResponse::new(200, format!("Hi {}!", name))
 }
