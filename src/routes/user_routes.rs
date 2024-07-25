@@ -8,6 +8,7 @@ pub fn configuration(configure: &mut web::ServiceConfig) {
             .wrap(from_fn(
                 middlewares::auth_middlewares::check_auth_middleware,
             ))
-            .service(handlers::user_handlers::user),
+            .service(handlers::user_handlers::user)
+            .service(handlers::user_handlers::update_user),
     );
 }

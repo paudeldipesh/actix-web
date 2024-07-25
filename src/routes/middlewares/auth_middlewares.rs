@@ -1,11 +1,15 @@
-use crate::utils::{api_response::ApiResponse, jwt::decode_jwt};
+use crate::utils::{
+    api_response::ApiResponse,
+    jwt::{decode_jwt, Claims},
+};
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
     http::header::{HeaderValue, AUTHORIZATION},
-    Error,
+    Error, HttpMessage,
 };
 use actix_web_lab::middleware::Next;
+use jsonwebtoken::TokenData;
 
 pub async fn check_auth_middleware(
     req: ServiceRequest,
@@ -26,7 +30,9 @@ pub async fn check_auth_middleware(
         .unwrap()
         .replace("Bearer ", "")
         .to_owned();
-    decode_jwt(token).unwrap();
+
+    let claim: TokenData<Claims> = decode_jwt(token).unwrap();
+    req.extensions_mut().insert(claim.claims);
 
     next.call(req)
         .await
