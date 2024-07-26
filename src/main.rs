@@ -52,6 +52,7 @@ async fn main() -> Result<(), MainError> {
             .configure(routes::home_routes::configuration)
             .configure(routes::auth_routes::configuration)
             .configure(routes::user_routes::configuration)
+            .configure(routes::post_routes::configuration)
     })
     .bind((address, port))
     .map_err(|err: Error| MainError {
@@ -63,3 +64,8 @@ async fn main() -> Result<(), MainError> {
         message: err.to_string(),
     })
 }
+
+/*
+Generate entity files: sea-orm-cli generate entity -o entity/src
+Continuous build watcher: cargo watch -x run
+*/

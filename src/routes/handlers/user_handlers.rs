@@ -1,5 +1,6 @@
 use crate::utils::{api_response::ApiResponse, app_status::AppState, jwt::Claims};
 use actix_web::{get, post, web};
+use entity::user::{ActiveModel, Entity};
 use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +34,7 @@ pub async fn update_user(
     user_data: web::Json<UpdateUserModel>,
     claim_data: Claims,
 ) -> Result<ApiResponse, ApiResponse> {
-    let mut user_model = entity::user::Entity::find_by_id(claim_data.id)
+    let mut user_model: ActiveModel = Entity::find_by_id(claim_data.id)
         .one(&app_state.db)
         .await
         .map_err(|err| ApiResponse::new(500, err.to_string()))?
