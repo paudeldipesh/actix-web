@@ -1,6 +1,6 @@
 use crate::utils::{api_response::ApiResponse, app_status::AppState, jwt::Claims};
 use actix_web::{get, post, web};
-use entity::user::{ActiveModel, Entity};
+use entity::user::{ActiveModel, Entity, Model};
 use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +14,13 @@ pub async fn user(
     app_state: web::Data<AppState>,
     claim_data: Claims,
 ) -> Result<ApiResponse, ApiResponse> {
-    let user_model = entity::user::Entity::find_by_id(claim_data.id)
+    let user_model: Model = Entity::find_by_id(claim_data.id)
         .one(&app_state.db)
         .await
         .map_err(|err| ApiResponse::new(500, err.to_string()))?
         .ok_or(ApiResponse::new(404, "user not found".to_owned()))?;
 
-    let entity::user::Model { name, email, .. } = user_model;
+    let Model { name, email, .. } = user_model;
 
     Ok(ApiResponse::new(
         200,

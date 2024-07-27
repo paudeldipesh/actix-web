@@ -1,5 +1,6 @@
 use crate::utils::{api_response::ApiResponse, app_status::AppState, jwt};
 use actix_web::{get, post, web, Responder};
+use entity::user::{ActiveModel, Entity, Model};
 use sea_orm::{ActiveModelTrait, ColumnTrait, Condition, DbErr, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use sha256::digest;
@@ -16,7 +17,7 @@ pub async fn register(
     app_state: web::Data<AppState>,
     register_json: web::Json<RegisterModel>,
 ) -> Result<ApiResponse, ApiResponse> {
-    let user_model = entity::user::ActiveModel {
+    let user_model: Model = ActiveModel {
         name: Set(register_json.name.clone()),
         email: Set(register_json.email.clone()),
         password: Set(digest(&register_json.password)),
@@ -40,7 +41,7 @@ pub async fn login(
     app_state: web::Data<AppState>,
     login_json: web::Json<LoginModel>,
 ) -> Result<ApiResponse, ApiResponse> {
-    let user_data = entity::user::Entity::find()
+    let user_data: Model = Entity::find()
         .filter(
             Condition::all()
                 .add(entity::user::Column::Email.eq(&login_json.email))

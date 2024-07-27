@@ -1,10 +1,10 @@
 use crate::utils::{api_response::ApiResponse, app_status::AppState};
 use actix_web::{get, web, Responder};
-use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
+use sea_orm::{ConnectionTrait, DatabaseBackend, QueryResult, Statement};
 
 #[get("")]
 pub async fn home(app_state: web::Data<AppState>) -> Result<ApiResponse, ApiResponse> {
-    let _response = app_state
+    let _response: Result<Vec<QueryResult>, ApiResponse> = app_state
         .db
         .query_all(Statement::from_string(
             DatabaseBackend::Postgres,

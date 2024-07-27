@@ -1,14 +1,21 @@
-use crate::utils::{api_response::ApiResponse, app_status::AppState, jwt::Claims};
+use crate::utils::{self, api_response::ApiResponse, app_status::AppState, jwt::Claims};
+use actix_multipart::form::{tempfile::TempFile, text::Text, MultipartForm};
 use actix_web::{get, post, web};
 use chrono::{NaiveDateTime, Utc};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use entity::post::{ActiveModel, Model};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter, Set,
+    TransactionTrait,
+};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(MultipartForm)]
 struct CreatePostModel {
-    title: String,
-    text: String,
+    title: Text<String>,
+    text: Text<String>,
+    file: TempFile,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -34,9 +41,38 @@ struct PostModel {
 pub async fn create_post(
     app_state: web::Data<AppState>,
     claim: Claims,
-    post_model: web::Json<CreatePostModel>,
+    post_model: MultipartForm<CreatePostModel>,
 ) -> Result<ApiResponse, ApiResponse> {
-    let post_entity = entity::post::ActiveModel {
+    let check_name: String = post_model
+        .file
+        .file_name
+        .clone()
+        .unwrap_or("null".to_owned());
+
+    let max_file_size: u64 = (*utils::constants::MAX_FILE_SIZE).clone();
+
+    match &check_name[check_name.len() - 4..] {
+        ".png" | ".jpg" => {}
+        _ => return Err(ApiResponse::new(400, "Invalid file type".to_owned())),
+    }
+
+    match post_model.file.size {
+        0 => {
+            return Err(ApiResponse::new(400, "Invalid file size".to_owned()));
+        }
+        length if length > max_file_size as usize => {
+            return Err(ApiResponse::new(400, "File size long".to_owned()));
+        }
+        _ => {}
+    }
+
+    let txn: DatabaseTransaction = app_state
+        .db
+        .begin()
+        .await
+        .map_err(|err| ApiResponse::new(500, err.to_string()))?;
+
+    let post_entity: ActiveModel = ActiveModel {
         title: Set(post_model.title.clone()),
         text: Set(post_model.text.clone()),
         uuid: Set(Uuid::new_v4()),
@@ -45,12 +81,48 @@ pub async fn create_post(
         ..Default::default()
     };
 
-    post_entity
-        .insert(&app_state.db)
+    let mut created_entity: ActiveModel = post_entity
+        .save(&txn)
         .await
         .map_err(|err| ApiResponse::new(500, err.to_string()))?;
 
-    Ok(ApiResponse::new(200, "Post Created".to_owned()))
+    let temp_file_path: &Path = post_model.file.file.path();
+    let file_name: &str = post_model
+        .file
+        .file_name
+        .as_ref()
+        .map(|m| m.as_ref())
+        .unwrap_or("null");
+
+    let time_stamp: i64 = Utc::now().timestamp();
+    let mut file_path: PathBuf = PathBuf::from("./public");
+    let new_file_name: String = format!("{}-{}", time_stamp, file_name);
+    file_path.push(&new_file_name);
+
+    match std::fs::copy(temp_file_path, file_path) {
+        Ok(_) => {
+            created_entity.image = Set(Some(new_file_name));
+            created_entity
+                .save(&txn)
+                .await
+                .map_err(|err| ApiResponse::new(500, err.to_string()))?;
+
+            txn.commit()
+                .await
+                .map_err(|err| ApiResponse::new(500, err.to_string()))?;
+
+            std::fs::remove_file(temp_file_path).unwrap_or_default();
+
+            Ok(ApiResponse::new(200, "Post Created".to_owned()))
+        }
+        Err(_) => {
+            txn.rollback()
+                .await
+                .map_err(|err| ApiResponse::new(500, err.to_string()))?;
+
+            Err(ApiResponse::new(500, "Internal server error".to_owned()))
+        }
+    }
 }
 
 // Get my posts
@@ -65,7 +137,7 @@ pub async fn my_posts(
         .await
         .map_err(|err| ApiResponse::new(500, err.to_string()))?
         .into_iter()
-        .map(|post| PostModel {
+        .map(|post: Model| PostModel {
             id: post.id,
             title: post.title,
             text: post.text,
@@ -76,7 +148,7 @@ pub async fn my_posts(
             user: None,
         })
         .collect();
-    let res_str =
+    let res_str: String =
         serde_json::to_string(&posts).map_err(|err| ApiResponse::new(500, err.to_string()))?;
 
     Ok(ApiResponse::new(200, res_str.to_owned()))
@@ -134,7 +206,7 @@ pub async fn one_post(
         })
         .ok_or(ApiResponse::new(404, "No Post Found".to_string()))?;
 
-    let res_str =
+    let res_str: String =
         serde_json::to_string(&posts).map_err(|err| ApiResponse::new(500, err.to_string()))?;
 
     Ok(ApiResponse::new(200, res_str.to_owned()))

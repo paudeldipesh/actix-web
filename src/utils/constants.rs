@@ -7,6 +7,7 @@ lazy_static! {
     pub static ref PORT: u16 = set_port();
     pub static ref DATABASE_URL: String = set_database_url();
     pub static ref SECRET: String = set_secret();
+    pub static ref MAX_FILE_SIZE: u64 = set_max_file_size();
 }
 
 fn set_address() -> String {
@@ -19,6 +20,14 @@ fn set_port() -> u16 {
     env::var("PORT")
         .unwrap_or_else(|_| String::from("5050"))
         .parse::<u16>()
+        .expect("Cannot parse the port")
+}
+
+fn set_max_file_size() -> u64 {
+    dotenv().ok();
+    env::var("MAX_FILE_SIZE")
+        .unwrap_or_else(|_| String::from("10485760"))
+        .parse::<u64>()
         .expect("Cannot parse the port")
 }
 
